@@ -1271,6 +1271,24 @@ fn getblock_verbosity_2_size_weight_and_tx_fee() {
     let hashes = dispatch(&ctx, "generate", vec![json!(1)]).unwrap();
     let tip = hashes.as_array().unwrap()[0].clone();
     let v2 = dispatch(&ctx, "getblock", vec![tip.clone(), json!(2)]).unwrap();
+    let coinbase = &v2["tx"][0];
+    assert!(
+        coinbase["vin"][0].get("coinbase").is_some(),
+        "coinbase vin must use Bitcoin Core's coinbase field: {coinbase}"
+    );
+    assert!(
+        coinbase["vin"][0].get("txid").is_none(),
+        "coinbase vin must not expose a normal prevout: {coinbase}"
+    );
+    let confirmed = dispatch(
+        &ctx,
+        "getrawtransaction",
+        vec![coinbase["txid"].clone(), json!(true)],
+    )
+    .unwrap();
+    assert_eq!(confirmed["confirmations"], json!(1));
+    assert_eq!(confirmed["blockhash"], tip);
+    assert_eq!(confirmed["blocktime"], confirmed["time"]);
     let raw = dispatch(&ctx, "getblock", vec![tip, json!(0)]).unwrap();
     let raw_bytes = rbitcoin_primitives::hex_decode(raw.as_str().unwrap()).unwrap();
     let block: bitcoin::Block = deserialize(&raw_bytes).unwrap();

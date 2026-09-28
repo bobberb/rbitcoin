@@ -1194,6 +1194,14 @@ pub(crate) fn tx_to_json(tx: &Transaction, extra: Option<Value>, network: BtcNet
     let txid = hash_hex_display(&tx.compute_txid().to_byte_array());
     let mut vin = Vec::new();
     for (i, inp) in tx.input.iter().enumerate() {
+        if tx.is_coinbase() {
+            vin.push(json!({
+                "coinbase": hex_encode(inp.script_sig.as_bytes()),
+                "sequence": inp.sequence.to_consensus_u32(),
+                "n": i,
+            }));
+            continue;
+        }
         let mut row = json!({
             "txid": hash_hex_display(&inp.previous_output.txid.to_byte_array()),
             "vout": inp.previous_output.vout,

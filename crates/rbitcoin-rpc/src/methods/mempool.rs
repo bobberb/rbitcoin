@@ -3,6 +3,7 @@ use bitcoin::consensus::encode::serialize_hex;
 use bitcoin::hashes::Hash;
 use bitcoin::{OutPoint, Transaction, Txid};
 use rbitcoin_net::MempoolHub;
+use rbitcoin_primitives::Height;
 use serde_json::{json, Value};
 
 pub(crate) fn getmempoolinfo(ctx: &RpcContext) -> Result<Value, Value> {
@@ -233,9 +234,30 @@ pub(crate) fn getrawtransaction(ctx: &RpcContext, params: &RpcParams) -> Result<
     if !verbose {
         return Ok(json!(serialize_hex(&tx)));
     }
+    let height = ctx
+        .query
+        .store()
+        .tx_height_get(fk)
+        .map_err(|e| rpc_error(ERR_MISC, e.to_string()))?
+        .ok_or_else(|| rpc_error(ERR_MISC, "confirmed transaction missing height"))?;
+    let (_, header) = ctx
+        .query
+        .header_at_height(Height(height))
+        .map_err(|e| rpc_error(ERR_MISC, e.to_string()))?
+        .ok_or_else(|| rpc_error(ERR_MISC, "confirmed transaction block missing"))?;
+    let tip = ctx
+        .query
+        .tip_height()
+        .ok_or_else(|| rpc_error(ERR_MISC, "chain tip missing"))?;
     Ok(tx_to_json(
         &tx,
-        Some(json!({ "in_mempool": false })),
+        Some(json!({
+            "in_mempool": false,
+            "confirmations": tip.0.saturating_sub(height).saturating_add(1),
+            "blockhash": hash_hex_display(&header.hash),
+            "blocktime": header.timestamp,
+            "time": header.timestamp,
+        })),
         rpc_btc_network(ctx.network),
     ))
 }
