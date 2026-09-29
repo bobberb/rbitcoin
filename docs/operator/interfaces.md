@@ -208,9 +208,8 @@ Point Node `ESPLORA.UNIX_SOCKET_PATH` at `--esplora-listen
 `/internal/*` is available. Put the sock in `/run/rbitcoin` (**0750**,
 rbitcoin user + `nginx` group) — nginx cannot traverse `{datadir}` when that
 tree is `0700`. TCP `--esplora-listen host:port` is public REST only (no
-`/internal`). Core RPC is `--rpc-socket /run/rbitcoin/rpc.sock` (mode
-**0660**) plus the `bitcoin-client` `socketPath` patch below — **not**
-`COOKIE_PATH` / HTTP Basic. Requires
+`/internal`). Core RPC for stock mempool is `--rpc-listen 127.0.0.1:8332` plus
+`--rpc-cookie-file PATH`; the cookie remains outside the Nix store. Requires
 `--sh-index`. The default `--max-sh-creates` is 10000; set 0 for an unlimited unpaged join.
 
 ```bash
@@ -243,7 +242,8 @@ Optional HTTP JSON-RPC subset (default **off**). `--rpc` binds
 client in rbitcoin's group can connect without traversing the `0700` datadir.
 `--rpc-listen` adds TCP on `127.0.0.1:<network port>` when ADDR is omitted
 (mainnet 8332, testnet 18332, signet 38332, regtest 18443). TCP auth is
-`Authorization: Bearer` from `{datadir}/rpc.token` (0600). The same
+`Authorization: Bearer` from `{datadir}/rpc.token` (0600), plus optional Core
+cookie HTTP Basic from `--rpc-cookie-file PATH`. The same
 listeners serve Core REST: `GET /rest/chaininfo.json`, block, headers, tx,
 mempool, `getutxos`, `deploymentinfo`, and `blockfilter/basic` for heights
 `--block-filter-index` has sealed. TCP `/rest/` is unauthenticated (Core).
@@ -255,9 +255,9 @@ Their unix config is Esplora, not bitcoind. Point their Node at this
 socket with a small patch to `backend/src/api/bitcoin/bitcoin-client.ts`
 (same `socketPath` + dummy `http://rpc/` pattern as
 `ESPLORA.UNIX_SOCKET_PATH`). Do **not** send `Authorization`. Bind the
-socket with `--rpc-socket /run/rbitcoin/rpc.sock` (0660) and run their Node
-in rbitcoin's group, or run it as the **same UID** with the default 0600
-`{datadir}/rpc.sock`. TCP `--rpc-listen` stays Bearer — that is not the mempool recipe.
+stock mempool with `CORE_RPC.HOST`, `PORT`, and `COOKIE` against
+`--rpc-listen 127.0.0.1:<network RPC port>` plus `--rpc-cookie-file PATH`.
+The cookie must be readable only by the rbitcoin and mempool service identities.
 
 ```bash
 ./target/release/rbitcoin-node \

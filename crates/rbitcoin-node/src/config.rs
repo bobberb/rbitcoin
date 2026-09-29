@@ -244,6 +244,8 @@ pub struct RpcOpts {
     pub socket_path: Option<PathBuf>,
     /// Override `{datadir}/rpc.token`.
     pub token_file: Option<PathBuf>,
+    /// Opt-in Core-format `username:password` cookie accepted as TCP HTTP Basic.
+    pub cookie_file: Option<PathBuf>,
     pub work_queue: Option<usize>,
 }
 
@@ -255,6 +257,7 @@ impl Default for RpcOpts {
             socket: false,
             socket_path: None,
             token_file: None,
+            cookie_file: None,
             work_queue: Some(rbitcoin_rpc::DEFAULT_RPC_WORK_QUEUE),
         }
     }
@@ -690,6 +693,11 @@ impl NodeConfig {
             .unwrap_or_else(|| rbitcoin_rpc::default_token_path(self.datadir.path()))
     }
 
+    /// Configured Core cookie file for TCP HTTP Basic authentication.
+    pub fn rpc_cookie_path(&self) -> Option<PathBuf> {
+        self.rpc.cookie_file.clone()
+    }
+
     /// `--rpc-socket`, else `{datadir}/rpc.sock`.
     pub fn rpc_socket_path(&self) -> PathBuf {
         self.rpc
@@ -1056,6 +1064,14 @@ impl NodeConfig {
                     ));
                 }
                 self.rpc.token_file = Some(PathBuf::from(val));
+            }
+            "rpc_cookie_file" => {
+                if val.is_empty() {
+                    return Err(NodeError::Config(
+                        "conf rpc_cookie_file requires a path".into(),
+                    ));
+                }
+                self.rpc.cookie_file = Some(PathBuf::from(val));
             }
             "ua_comment" => self.uacomments.push(val.to_string()),
             "test_activation_height" => {
